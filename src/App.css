@@ -36,3 +36,15 @@
     transform: rotate(360deg);
   }
 }
+
+canvas {
+  border: 2px black;
+  margin-top: 20px;
+}
+
+#reset-button {
+  display: block;
+  text-align: center;
+
+  margin-top: 20px;
+}
