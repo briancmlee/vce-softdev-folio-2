@@ -48,3 +48,8 @@ canvas {
 
   margin-top: 20px;
 }
+
+span {
+  display: block;
+  text-align: center;
+}

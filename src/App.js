@@ -1,12 +1,20 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
 
-const calculateYValue = (xValue, coefficientArray) => {
-  return coefficientArray.reduce((total, coeff, index) => {
-    return Number(total + (coeff * Math.pow(xValue, index)));
-  })
+const calculateYValue = (xValue, coefficientStringArray) => {
+  // return coefficientStringArray.reduce((total, coeff, index) => {
+  //   return Number(total + (Number(coeff) * Math.pow(xValue, 2 - index)));
+  // })
+  let accumulator = 0;
+
+  for (let i = 0; i < 3; i++) {
+    accumulator = accumulator + (Number(coefficientStringArray[i]) * Math.pow(xValue, i));
+  }
+
+  return accumulator;
 };
+
+console.log(calculateYValue(4, ["1", "8", "0"]));
 
 
 class App extends React.Component {
@@ -14,65 +22,61 @@ class App extends React.Component {
     super(props);
 
     this.state = {
-      coefficientStringArray: ["0", "0", "0"]
+      coefficientStringArray: ["0", "0", "0"],
+      axisParams: {
+        "domain": [-250, 250],
+        "range": [-250, 250]
+      }
     };
 
     this.equationChange = this.equationChange.bind(this);
     this.updateCanvas = this.updateCanvas.bind(this);
     this.resetGraph = this.resetGraph.bind(this);
+    this.paramChange = this.paramChange.bind(this);
   }
 
   componentDidMount() {
-    const canvasHeight = this.refs.canvas.height;
-    const canvasWidth = this.refs.canvas.width;
-    const ctx = this.refs.canvas.getContext("2d");
-
-    ctx.setLineDash([3,3]);
-    ctx.beginPath();
-    ctx.moveTo(canvasWidth / 2, 0);
-    ctx.lineTo(canvasWidth / 2, canvasHeight);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, canvasHeight / 2);
-    ctx.lineTo(canvasWidth, canvasHeight / 2);
-    ctx.stroke();
+    this.updateCanvas();
   }
 
-  updateCanvas(coefficientStringArray) {
+
+  updateCanvas() {
     const canvasHeight = this.refs.canvas.height;
     const canvasWidth = this.refs.canvas.width;
+    const ctx = this.refs.canvas.getContext("2d"); 
 
+    const axisDomain = this.state.axisParams["domain"];
+    const axisRange = this.state.axisParams["range"];
 
-    let coordArray = [];
-      for (var i = 0; i < canvasWidth; i++) {
-        // const coordPair = [i - canvasWidth / 2, calculateYValue(i - canvasWidth / 2, coefficientStringArray)];
-        const coordPair = [i - canvasWidth / 2, calculateYValue(i - canvasWidth / 2, coefficientStringArray.map(item => Number(item)))]
-        coordArray.push(coordPair);
+    const axisDomSize = axisDomain[1] - axisDomain[0];
+    const axisRangeSize = axisRange[1] - axisRange[0];
+
+    const canvXToGraphX = canvasXValue => { return axisDomain[0] + (canvasXValue * (axisDomSize / canvasWidth)) };
+    const graphXToCanvX = graphXValue => { return canvasWidth * ((graphXValue - axisDomain[0]) / axisDomSize) };
+    const graphYToCanvY = graphYValue => { return canvasHeight * (1 - ((graphYValue - axisRange[0]) / axisRangeSize)) };
+
+    if (this.state.coefficientStringArray !== ["0", "0", "0"]) {
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      ctx.setLineDash([0, 0]);
+      ctx.beginPath();
+      for (let canvasXValue = 0; canvasXValue < canvasWidth; canvasXValue++) {
+        if (canvasXValue === 0) {
+          ctx.moveTo(canvasXValue, graphYToCanvY(calculateYValue(canvXToGraphX(canvasXValue), this.state.coefficientStringArray)));
+        } else {
+          ctx.lineTo(canvasXValue, graphYToCanvY(calculateYValue(canvXToGraphX(canvasXValue), this.state.coefficientStringArray)));
+        }
       }
-
-    const ctx = this.refs.canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-    
-    ctx.setLineDash([0,0]);
-    ctx.beginPath();
-    coordArray.forEach((coordPair, index) => {
-      if (index === 1) {
-        ctx.moveTo(coordPair[0] + 250, canvasHeight - (coordPair[1] + 250))
-      } else {
-        ctx.lineTo(coordPair[0] + 250, canvasHeight - (coordPair[1] + 250))
-      }
-    })
-    ctx.stroke();
+      ctx.stroke();
+    }
 
     ctx.setLineDash([3,3]);
     ctx.beginPath();
-    ctx.moveTo(canvasWidth / 2, 0);
-    ctx.lineTo(canvasWidth / 2, canvasHeight);
+    ctx.moveTo(0, graphYToCanvY(0));
+    ctx.lineTo(canvasWidth,graphYToCanvY(0));
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(0, canvasHeight / 2);
-    ctx.lineTo(canvasWidth, canvasHeight / 2);
+    ctx.moveTo(graphXToCanvX(0), 0);
+    ctx.lineTo(graphXToCanvX(0), canvasHeight);
     ctx.stroke();
   }
   
@@ -84,14 +88,33 @@ class App extends React.Component {
     coefficientStringArray[valueIndex] = newValue
 
     this.setState({coefficientStringArray: coefficientStringArray}, () => {
-      this.updateCanvas(coefficientStringArray);
+      this.updateCanvas();
     })
+  }
+
+  paramChange(event) {
+    const newValue = Number(event.target.value);
+    const domainOrRange = event.target.className;
+    const axisParamIndex = parseInt(event.target.getAttribute("index"))
+    let axisParams = this.state.axisParams;
+
+    if ((axisParamIndex === 0 && (newValue < axisParams[domainOrRange][1])) || (axisParamIndex === 1 && (newValue > axisParams[domainOrRange][0]))) {    
+      axisParams[domainOrRange][axisParamIndex] = newValue;
+
+      this.setState({axisParams: axisParams}, () => { 
+        this.updateCanvas();
+      })
+    }
   }
   
   resetGraph() {
     this.setState({
-      coefficientStringArray: ["0", "0", "0"]
-    })
+      coefficientStringArray: ["0", "0", "0"],
+      axisParams: {
+        "domain": [-250, 250],
+        "range": [-250, 250]
+      }
+    }, () => { this.updateCanvas() })
   }
 
   render() {
@@ -103,7 +126,16 @@ class App extends React.Component {
           <input type="number" onChange={this.equationChange} value={this.state.coefficientStringArray[1]} power={1} />x + 
           <input type="number" onChange={this.equationChange} value={this.state.coefficientStringArray[0]} power={0} />
         </span>
-        <canvas ref="canvas" height={500} width={500}  coefficientStringArray={this.state.coefficientStringArray} />
+        <span>Domain: [ 
+          <input type="number" className="domain" onChange={this.paramChange} value={this.state.axisParams["domain"][0]} index={0} />, 
+          <input type="number" className="domain" onChange={this.paramChange} value={this.state.axisParams["domain"][1]} index={1} /> 
+        ]</span>
+        <span>Range: [ 
+          <input type="number" className="range" onChange={this.paramChange} value={this.state.axisParams["range"][0]} index={0} />, 
+          <input type="number" className="range" onChange={this.paramChange} value={this.state.axisParams["range"][1]} index={1} /> 
+        ]</span>
+
+        <canvas ref="canvas" height={500} width={500}/>
         <div id="reset-button">
           <button onClick={this.resetGraph} >Clear graph</button>
         </div>
